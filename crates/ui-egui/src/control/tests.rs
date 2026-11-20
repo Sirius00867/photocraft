@@ -1320,6 +1320,20 @@ fn automation_confirming_a_file_writing_dialog_is_judged_as_its_file_command() {
     assert!(r.is_err_and(|e| e.contains("file.save")));
 }
 
+/// `ui.dialog.open {kind: "formatOptions"}` parks a Save As of a request-supplied path that is
+/// later written with the user's ambient authority, so it is judged as `file.saveAs` before the
+/// dialog opens: a client that may not save files can't write one outside the automation root.
+#[test]
+fn automation_format_options_dialog_is_judged_as_file_save_as() {
+    let (mut app, ctx, written, _) = gated_app_recording_writes();
+    let target = std::env::temp_dir().join("outside").join("x.jpg").to_string_lossy().into_owned();
+    let r = call(&mut app, &ctx, "ui.dialog.open", json!({"kind": "formatOptions", "format": "jpeg", "path": target}));
+    assert!(r["error"].as_str().is_some_and(|e| e.contains("file.saveAs")), "refused as file.saveAs: {r}");
+    assert!(app.parked_save.is_none(), "no save is parked");
+    crate::dialogs::take_results(&mut app, &ctx);
+    assert!(written.borrow().is_empty(), "nothing is written: {:?}", written.borrow());
+}
+
 /// The desktop policy's verdict on file commands (crates/automation/src/workspace.rs): automation
 /// may close documents, but every file command that reads or writes a file, File › Save
 /// included, is refused.

@@ -47,6 +47,12 @@ pub(crate) const KINDS: &[(&str, Opener)] = &[
         if p.get("format").and_then(Value::as_str).is_none() || p.get("path").and_then(Value::as_str).is_none() {
             return Err("formatOptions needs `format` and `path`".into());
         }
+        // The parked save is later written to `path` with the user's ambient authority, never
+        // through the automation write root, so it is judged here as the Save As it records:
+        // automation must save through `app.save`, which is scoped to the workspace.
+        if let Some(authorize) = app.services.automation_command.as_ref() {
+            authorize("file.saveAs", &serde_json::json!({ "path": p.get("path"), "format": p.get("format") }))?;
+        }
         crate::dialogs::format_prompts::open(app, ctx, p)
     }),
 ];
