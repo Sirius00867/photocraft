@@ -408,9 +408,11 @@ fn delete(s: &mut Session, p: &Value) -> Result<Value> {
 fn import(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "pattern.import";
     // A file on disk, or its bytes (a dropped file, the web build).
+    // Bounded like every other preset import (encoded and decoded length, capped file read), so a
+    // huge file, `/dev/zero` or a multi-GiB `data` string cannot exhaust memory. `path` still wins.
     let bytes = match (p.get("path").and_then(Value::as_str), p.get("data").and_then(Value::as_str)) {
-        (Some(path), _) => std::fs::read(path).map_err(|e| EngineError::Other(format!("{path}: {e}")))?,
-        (None, Some(b64)) => photocraft_paint::tile::b64_decode(b64).ok_or_else(|| bad(cmd, "`data` is not base64"))?,
+        (Some(path), _) => crate::preset_import_cmds::file_bytes(&json!({ "path": path }), cmd, ".pat file")?.0,
+        (None, Some(b64)) => crate::preset_import_cmds::file_bytes(&json!({ "data": b64 }), cmd, ".pat file")?.0,
         (None, None) => return Err(bad(cmd, "missing `path` (.pat file) or `data`")),
     };
     let pats = photocraft_io::pattern_map::read_pat(&bytes).map_err(EngineError::Other)?;
