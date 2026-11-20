@@ -219,7 +219,12 @@ fn shell_methods(app: &mut PhotocraftApp, ctx: &egui::Context, req: &ControlRequ
             if app.ui.windows.len() < before { ok(Value::Null) } else { err(format!("no window {id}")) }
         }
         "ui.resize" => {
-            let (w, h) = (p.get("width").and_then(Value::as_f64).unwrap_or(1280.0), p.get("height").and_then(Value::as_f64).unwrap_or(800.0));
+            // Finite and within what a window surface can be: NaN, negative or huge sizes never reach the platform.
+            let dim = |key: &str, default: f64| super::params::input_number(p, key, key, Some((100.0, 16384.0))).map(|v| v.unwrap_or(default));
+            let (w, h) = match (dim("width", 1280.0), dim("height", 800.0)) {
+                (Ok(w), Ok(h)) => (w, h),
+                (Err(e), _) | (_, Err(e)) => return Some(err(e)),
+            };
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(w as f32, h as f32)));
             ok(Value::Null)
         }
