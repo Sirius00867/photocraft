@@ -14,9 +14,9 @@ on:
         type: string
         default: ""
 
-permissions:
-  contents: write
-  packages: write
+# Nothing by default: each job asks for what it needs, so a job added later does not inherit
+# release write access by accident.
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -31,6 +31,10 @@ jobs:
     uses: storytold/craft-common-actions/.github/workflows/refresh-contributors.yml@main
   release:
     needs: credits
+    # Publishing the release and its packages; only this job writes.
+    permissions:
+      contents: write
+      packages: write
     # Intentionally tracked at @main (not SHA-pinned) so org-wide CI improvements, security fixes, and build optimizations propagate without PR churn across all craftapp repos.
     uses: storytold/craft-common-actions/.github/workflows/release.yml@main
     with:
